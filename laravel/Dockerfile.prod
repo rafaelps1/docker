@@ -1,0 +1,33 @@
+# Stage Build
+FROM php:7.4-cli AS builder
+
+WORKDIR /var/www
+
+RUN apt-get update && \
+    apt-get install -y libzip-dev && \
+    docker-php-ext-install zip
+
+RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" && \
+    php composer-setup.php && \
+    php -r "unlink('composer-setup.php');"
+
+RUN php composer.phar create-project --prefer-dist laravel/laravel laravel
+
+# Stage Setup
+# disclosure: the php server not provide images, than that task, 
+# you'll need to copy the images for nginx server
+FROM php:7.4-fpm-alpine
+
+WORKDIR /var/www
+
+RUN rm -rf /var/www/html
+
+COPY --from=builder /var/www/laravel .
+
+RUN ln -s public html
+
+RUN chown -R www-data:www-data /var/www
+
+EXPOSE 9000
+
+CMD [ "php-fpm" ]
